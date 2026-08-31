@@ -1,0 +1,1 @@
+{"definition":"bot = shape diversity <= 0.15 at settlement; human = > 0.4; measured over 200 messages","nick_diversity":1.0,"room":"monflop-node","sampled":200,"shape_diversity":0.005,"shapes":1,"top_shape":"fleet-test/v<n> day=<n>-<n>-<n> idx=<n> list_sha<n>=<hex> rooms=<n>/<n> notes=<n>/<n>","writers":200}

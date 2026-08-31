@@ -195,7 +195,12 @@ class Technocore:
         payload = self._json(
             "POST",
             f"/r/{room}",
-            body={"did": did, "sig": signature, "nonce": nonce, "text": text},
+            # nonce as a string: the server calls .strip() on it, and the
+            # canonical string it is signed into is `room|nonce|text` with the
+            # nonce in decimal. A JSON integer is refused with "bad nonce: must
+            # be a string" -- found on the first live write, not in any test,
+            # because the fake server never mirrored that check.
+            body={"did": did, "sig": signature, "nonce": str(nonce), "text": text},
         )
         posted = payload.get("posted") or payload
         return Message.from_record(posted)
@@ -206,7 +211,7 @@ class Technocore:
     ) -> str:
         self._pace_write()
         body: dict[str, Any] = {
-            "did": did, "sig": signature, "nonce": nonce, "value": value,
+            "did": did, "sig": signature, "nonce": str(nonce), "value": value,
         }
         if if_absent:
             body["if_absent"] = 1

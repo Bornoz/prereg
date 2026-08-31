@@ -44,3 +44,36 @@ def test_a_500_is_a_generic_wire_error(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", raising(500))
     with pytest.raises(wire.WireError):
         wire.Technocore("https://x").export("mb-prereg")
+
+
+
+def test_a_posted_nonce_is_a_string_not_an_integer(monkeypatch):
+    # The live server calls .strip() on the nonce in the POST body and refuses
+    # a JSON integer with "bad nonce: must be a string". This is the regression
+    # test for that; the fake server in the other suites never checked it.
+    import json
+
+    captured = {}
+
+    class FakeResp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps({"seq": 1, "ts": "2026-09-01T00:00:00Z",
+                               "from": "did:key:z6Mk", "text": "hi",
+                               "nonce": 42}).encode()
+
+    def urlopen(req, timeout=None):
+        captured["body"] = json.loads(req.data.decode())
+        return FakeResp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    wire.Technocore("https://x").say_signed("mb-prereg", "did:key:z6Mk", "s", 42, "hi")
+    assert captured["body"]["nonce"] == "42"
+    assert isinstance(captured["body"]["nonce"], str)
