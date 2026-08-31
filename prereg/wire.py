@@ -48,6 +48,15 @@ class WriteOutcomeUnknown(WireError):
     """The request may or may not have committed. Reconcile before retrying."""
 
 
+class ServiceUnavailable(WireError):
+    """A 502/503/504 from the service or its proxy. The service is down, not us.
+
+    Reads raise it so a cycle can log and wait; writes raise WriteOutcomeUnknown
+    instead, because a 503 from a proxy in front of the write cannot promise the
+    write did not reach the origin.
+    """
+
+
 @dataclass(frozen=True)
 class Message:
     seq: int
@@ -95,6 +104,12 @@ class Technocore:
             payload = exc.read().decode("utf-8", "replace")
             if exc.code == 429:
                 raise RateLimited(_retry_after(exc, payload), payload) from None
+            if exc.code in (502, 503, 504):
+                if method == "POST":
+                    raise WriteOutcomeUnknown(
+                        f"{method} {path} -> {exc.code}: service unavailable") from None
+                raise ServiceUnavailable(
+                    f"{method} {path} -> {exc.code}: service unavailable") from None
             raise WireError(f"{method} {path} -> {exc.code}: {payload[:300]}") from None
         except (urllib.error.URLError, TimeoutError) as exc:
             if method == "POST":

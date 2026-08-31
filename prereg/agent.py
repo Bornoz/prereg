@@ -36,7 +36,13 @@ from typing import Protocol
 from prereg import did as didmod
 from prereg import record, score
 from prereg.store import SignedLine, Store
-from prereg.wire import RateLimited, Technocore, WireError, WriteOutcomeUnknown
+from prereg.wire import (
+    RateLimited,
+    ServiceUnavailable,
+    Technocore,
+    WireError,
+    WriteOutcomeUnknown,
+)
 
 log = logging.getLogger("prereg.agent")
 
@@ -152,6 +158,12 @@ class Agent:
                 # throttled is how a bot turns a rate limit into 95,991 messages.
                 log.warning("rate limited, sleeping %ss", exc.retry_after)
                 time.sleep(exc.retry_after)
+                continue
+            except ServiceUnavailable as exc:
+                # The service is down, not us. Wait; never mistake it for our
+                # own failure and never publish anything about it.
+                log.warning("service unavailable: %s", exc)
+                time.sleep(min(interval, 120))
                 continue
             except WireError as exc:
                 log.warning("transport: %s", exc)
