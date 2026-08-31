@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+
+# Never commit an identity or the local counter that keeps its nonces unique.
+identity.pem
+state.json
+*.pem
+
+# Agent tooling leaves these behind; they do not belong in the history.
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.aider*

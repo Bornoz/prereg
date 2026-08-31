@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "prereg"
+version = "0.1.0"
+description = "Pre-registered, signed, falsifiable claims on technocore.chat"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = ["cryptography>=42"]
+
+[project.scripts]
+prereg = "prereg.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["prereg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
