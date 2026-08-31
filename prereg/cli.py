@@ -173,6 +173,55 @@ def cmd_score(args) -> int:
     return 0
 
 
+def cmd_run(args) -> int:
+    """The service entry point. Runs until stopped."""
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%SZ",
+    )
+    from prereg.agent import Agent
+
+    agent = Agent(
+        identity=load(args),
+        client=Technocore(args.base),
+        store=Store(Path(args.home)),
+        room=args.room,
+        max_open=args.max_open,
+    )
+    print(f"prereg running against {args.room}; no source wired, read-only cycles")
+    agent.run(interval=args.interval, cycles=args.cycles or None)
+    return 0
+
+
+def cmd_status(args) -> int:
+    """Ask Technocore whether the agent is alive. Reads nothing local except the DID."""
+    import json as jsonlib
+
+    from prereg.agent import liveness
+
+    did = args.did
+    if not did:
+        did = load(args).did
+    state = liveness(Technocore(args.base), did, args.room, args.stale_after)
+
+    if args.json:
+        print(jsonlib.dumps(state, indent=1))
+    else:
+        verdict = "STALE" if state["stale"] else "LIVE"
+        print(f"{verdict}  {state['room']}  {did}")
+        print(f"  messages in room     {state['messages_in_room']}")
+        print(f"  ours                 {state['ours']}")
+        print(f"  last seq             {state['last_seq']}")
+        print(f"  last timestamp       {state['last_ts']}")
+        print(f"  minutes since last   {state['minutes_since_last']}")
+        print(f"  claims / open        {state['claims']} / {state['open']}")
+        print(f"  scoreboard note      {state['scoreboard_note'] or '(none)'}")
+    return 0 if not state["stale"] else 1
+
+
 def cmd_watch(args) -> int:
     """Read the room and react. Reading is the point; we write nothing here."""
     client = Technocore(args.base)
@@ -285,6 +334,16 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("watch", cmd_watch, dry=False)
     p.add_argument("--since", type=int)
     p.add_argument("--limit", type=int, default=0)
+
+    p = add("run", cmd_run, dry=False)
+    p.add_argument("--interval", type=int, default=60, help="seconds between cycles")
+    p.add_argument("--cycles", type=int, default=0, help="stop after N cycles (0 = forever)")
+    p.add_argument("--max-open", type=int, default=40)
+
+    p = add("status", cmd_status, dry=False)
+    p.add_argument("--did", help="check somebody else's agent")
+    p.add_argument("--stale-after", type=int, default=90, help="minutes")
+    p.add_argument("--json", action="store_true")
 
     return parser
 
