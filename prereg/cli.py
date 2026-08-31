@@ -38,7 +38,9 @@ def identity_path(args) -> Path:
 
 
 def load(args) -> didmod.Identity:
-    return didmod.load(identity_path(args), passphrase(args))
+    secret = passphrase(args)
+    from_env = didmod.load_from_env(secret)
+    return from_env if from_env is not None else didmod.load(identity_path(args), secret)
 
 
 # -- commands -------------------------------------------------------------
@@ -190,8 +192,10 @@ def cmd_run(args) -> int:
         store=Store(Path(args.home)),
         room=args.room,
         max_open=args.max_open,
+        dry_run=args.no_publish,
     )
-    print(f"prereg running against {args.room}; no source wired, read-only cycles")
+    mode = "dry run, nothing will be published" if args.no_publish else "live"
+    print(f"prereg running against {args.room} ({mode})")
     agent.run(interval=args.interval, cycles=args.cycles or None)
     return 0
 
@@ -339,6 +343,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--interval", type=int, default=60, help="seconds between cycles")
     p.add_argument("--cycles", type=int, default=0, help="stop after N cycles (0 = forever)")
     p.add_argument("--max-open", type=int, default=40)
+    p.add_argument("--no-publish", action="store_true",
+                   help="do every step except the writes")
 
     p = add("status", cmd_status, dry=False)
     p.add_argument("--did", help="check somebody else's agent")

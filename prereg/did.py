@@ -186,6 +186,34 @@ def load(path: Path, passphrase: str) -> Identity:
     return Identity(private, did_from_public_key(private.public_key()))
 
 
+def load_pem(pem: bytes, passphrase: str) -> Identity:
+    private = serialization.load_pem_private_key(
+        pem, password=passphrase.encode("utf-8")
+    )
+    if not isinstance(private, Ed25519PrivateKey):
+        raise IdentityError("the stored key is not Ed25519")
+    return Identity(private, did_from_public_key(private.public_key()))
+
+
+def load_from_env(
+    passphrase: str, variable: str = "PREREG_IDENTITY_PEM"
+) -> Identity | None:
+    """Load the key from a base64 environment variable instead of a file.
+
+    A scheduled runner has no home directory that survives between runs, so the
+    encrypted PEM arrives as a secret and never touches the disk. Returns None if
+    the variable is unset, so the file path stays the default everywhere else.
+    """
+    raw = os.environ.get(variable)
+    if not raw:
+        return None
+    try:
+        pem = base64.b64decode(raw.strip(), validate=True)
+    except (ValueError, TypeError) as exc:
+        raise IdentityError(f"{variable} is not valid base64") from exc
+    return load_pem(pem, passphrase)
+
+
 def passphrase_from_env(variable: str = "PREREG_PASSPHRASE") -> str:
     value = os.environ.get(variable)
     if not value:

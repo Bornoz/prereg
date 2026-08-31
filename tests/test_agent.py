@@ -222,3 +222,30 @@ def test_the_server_timestamp_parser_takes_what_the_server_actually_sends():
 
     for bad in ("", "   ", "not a time", None):
         assert _server_time(bad) is None
+
+
+def test_dry_run_touches_neither_the_room_nor_the_notes(tmp_path):
+    _ident, client, agent = make(tmp_path, source=OneDraft(draft()),
+                                 resolver=AlwaysHit(), dry_run=True)
+    agent.cycle(wait=0)
+    agent.cycle(wait=0)
+    assert client.messages == []
+    assert client.notes == {}
+    assert Store(tmp_path).signatures() == []
+
+
+def test_an_identity_round_trips_through_the_environment(tmp_path, monkeypatch):
+    import base64
+
+    from prereg import did as d
+
+    path = tmp_path / "k.pem"
+    original = d.create(path, "a-long-enough-passphrase")
+    monkeypatch.setenv(
+        "PREREG_IDENTITY_PEM", base64.b64encode(path.read_bytes()).decode()
+    )
+    loaded = d.load_from_env("a-long-enough-passphrase")
+    assert loaded is not None and loaded.did == original.did
+
+    monkeypatch.delenv("PREREG_IDENTITY_PEM")
+    assert d.load_from_env("a-long-enough-passphrase") is None

@@ -1,0 +1,83 @@
+name: agent
+
+# The agent runs here rather than on a box somebody has to trust. Every cycle
+# leaves a public run record with a timestamp GitHub assigns, which is a second
+# independent witness to the one Technocore keeps: the room says what was
+# published, this says when the thing that published it ran.
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub queues scheduled runs and delivers them late
+    # under load, sometimes by half an hour. Nothing here depends on punctuality
+    # -- claims carry their own deadlines and settlement is idempotent.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# One cycle at a time, ever. Two overlapping runs would allocate nonces from two
+# clocks and could publish the same claim twice.
+concurrency:
+  group: prereg-agent
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    env:
+      PREREG_ROOM: ${{ vars.PREREG_ROOM || 'd-prereg' }}
+      PREREG_HOME: ${{ github.workspace }}/record
+      PREREG_PASSPHRASE: ${{ secrets.PREREG_PASSPHRASE }}
+      PREREG_IDENTITY_PEM: ${{ secrets.PREREG_IDENTITY_PEM }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -e .
+
+      # Until the identity secrets exist the agent has nothing to sign with, so
+      # the run stops here quietly instead of turning the schedule into a wall
+      # of red crosses.
+      - name: is there an identity to run as
+        id: ready
+        run: |
+          if [ -n "$PREREG_IDENTITY_PEM" ] && [ -n "$PREREG_PASSPHRASE" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No identity configured yet. Set the PREREG_IDENTITY_PEM and"
+            echo "PREREG_PASSPHRASE repository secrets to start the agent."
+          fi
+
+      - name: one cycle
+        if: steps.ready.outputs.ready == 'true'
+        run: prereg run --room "$PREREG_ROOM" --cycles 1 --interval 0
+
+      - name: write the public record
+        if: steps.ready.outputs.ready == 'true'
+        run: prereg score --room "$PREREG_ROOM" > record/scoreboard.txt
+
+      - name: commit the record if it moved
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          git config user.name "prereg"
+          git config user.email "omermsn@msn.com"
+          git add -A record
+          if git diff --cached --quiet; then
+            echo "nothing new this cycle"
+          else
+            git commit -m "record: cycle $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
+
+      # The point of the whole exercise: do not ask the host whether the agent
+      # is alive, ask the network. This step reads the room back from
+      # technocore.chat and fails the run if our DID has gone quiet.
+      - name: confirm from technocore
+        if: steps.ready.outputs.ready == 'true'
+        run: prereg status --room "$PREREG_ROOM" --stale-after 120

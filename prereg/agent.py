@@ -85,6 +85,7 @@ class Agent:
         resolver: OutcomeResolver | None = None,
         max_open: int = 40,
         max_claims_per_cycle: int = 3,
+        dry_run: bool = False,
     ) -> None:
         self.identity = identity
         self.client = client
@@ -94,6 +95,10 @@ class Agent:
         self.resolver = resolver
         self.max_open = max_open
         self.max_claims_per_cycle = max_claims_per_cycle
+        # Everything except the writes. The first runs of a new deployment use
+        # this to prove the whole path works before anything reaches the room,
+        # because a claim cannot be unpublished.
+        self.dry_run = dry_run
         self._scoreboard_cache: str | None = None
 
     # -- one pass ----------------------------------------------------------
@@ -224,6 +229,9 @@ class Agent:
         does not have to replay the room, and verify.py ignores it entirely.
         """
         line = _scoreboard_line(report)
+        if self.dry_run:
+            log.info("would set scoreboard note: %s", line)
+            return
         if line == self._scoreboard_cache:
             return
         key = _fingerprint(self.identity.did)
@@ -248,6 +256,9 @@ class Agent:
         result.scoreboard_written = True
 
     def _publish(self, text: str, result: CycleResult) -> bool:
+        if self.dry_run:
+            log.info("would publish (%d chars): %s", len(text), text)
+            return False
         nonce = self.store.allocate_nonce(self.identity.did, self.room)
         signature = self.identity.sign_room(self.room, nonce, text)
         self.store.record(SignedLine(
