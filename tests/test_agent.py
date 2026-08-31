@@ -270,3 +270,38 @@ def test_a_dry_run_leaves_no_evidence_behind(tmp_path):
     _ident, _client, agent = make(tmp_path, source=OneDraft(draft()), dry_run=True)
     agent.cycle(wait=0)
     assert not (tmp_path / "evidence").exists()
+
+
+def test_an_unchanged_scoreboard_is_rewritten_once_the_stamp_goes_stale(tmp_path):
+    """Correctly quiet has to stay distinguishable from dead."""
+    _ident, client, agent = make(tmp_path)
+    assert agent.cycle(wait=0).scoreboard_written
+    assert not agent.cycle(wait=0).scoreboard_written
+    agent._heartbeat_at -= 3600  # an hour passes
+    assert agent.cycle(wait=0).scoreboard_written
+    assert client.messages == []  # the heartbeat never touches the room
+
+
+def test_liveness_accepts_a_fresh_scoreboard_when_the_room_is_quiet(tmp_path):
+    from prereg import record
+    from prereg.agent import SCOREBOARD_NS, _fingerprint, liveness
+
+    ident, client, agent = make(tmp_path)
+    agent.cycle(wait=0)
+    # Stamp the note as freshly written; the room itself stays empty.
+    client.notes[(SCOREBOARD_NS, _fingerprint(ident.did))] = (
+        f"prereg/1 record claims=0 hit=0 miss=0 expired=0 void=0 open=0 "
+        f"acc=n/a brier=n/a at={record.format_time(record.now())}"
+    )
+    state = liveness(client, ident.did, ROOM, stale_after_minutes=90)
+    assert state["ours"] == 0
+    assert state["scoreboard_minutes"] is not None
+    assert not state["stale"]
+
+
+def test_liveness_is_stale_when_both_signals_are_old(tmp_path):
+    from prereg.agent import liveness
+
+    ident, client, _agent = make(tmp_path)
+    state = liveness(client, ident.did, ROOM, stale_after_minutes=90)
+    assert state["stale"]

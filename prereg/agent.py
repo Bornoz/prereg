@@ -114,6 +114,7 @@ class Agent:
         # because a claim cannot be unpublished.
         self.dry_run = dry_run
         self._scoreboard_cache: str | None = None
+        self._heartbeat_at = time.monotonic()
 
     # -- one pass ----------------------------------------------------------
 
@@ -274,17 +275,24 @@ class Agent:
 
         The note carries no authority on its own. It is a convenience so a reader
         does not have to replay the room, and verify.py ignores it entirely.
+
+        It is also the heartbeat. An agent sitting at its open-claim ceiling is
+        being correctly quiet, and correctly quiet has to stay distinguishable
+        from dead -- so an unchanged scoreboard is still rewritten once the
+        stamp on it is about an hour old. One small write per idle hour, on one
+        key, in the lane built for state.
         """
         line = _scoreboard_line(report)
         if self.dry_run:
             log.info("would set scoreboard note: %s", line)
             return
-        if line == self._scoreboard_cache:
+        if line == self._scoreboard_cache and not self._heartbeat_due():
             return
         key = _fingerprint(self.identity.did)
         try:
             current = self.client.read_note(SCOREBOARD_NS, key)
-            if current is not None and current.strip() == line:
+            if (current is not None and current.strip() == line
+                    and not self._heartbeat_due()):
                 self._scoreboard_cache = line
                 return
             self.client.set_note(
@@ -300,7 +308,11 @@ class Agent:
             self._scoreboard_cache = None
             return
         self._scoreboard_cache = line
+        self._heartbeat_at = time.monotonic()
         result.scoreboard_written = True
+
+    def _heartbeat_due(self, every_seconds: float = 3300.0) -> bool:
+        return time.monotonic() - self._heartbeat_at >= every_seconds
 
     def _publish(self, text: str, result: CycleResult) -> bool:
         if self.dry_run:
@@ -327,6 +339,7 @@ class Agent:
 
 
 def _scoreboard_line(report: score.Report) -> str:
+    """Includes an at= stamp, so a rewritten-but-unchanged record still moves."""
     accuracy = "n/a" if report.accuracy is None else f"{report.accuracy:.3f}"
     brier = "n/a" if report.brier is None else f"{report.brier:.4f}"
     return (
@@ -381,6 +394,19 @@ def liveness(client: Technocore, did: str, room: str, stale_after_minutes: int =
     age = None if last_ts is None else (record.now() - last_ts).total_seconds() / 60
     note = client.read_note(SCOREBOARD_NS, _fingerprint(did))
 
+    # A correctly quiet agent still refreshes its scoreboard stamp about hourly,
+    # so the note's own at= field is proof of life when the room has no reason
+    # to move. Whichever signal is fresher decides.
+    note_age = None
+    if note:
+        import re as _re
+
+        stamp = _re.search(r"at=(\S+)", note)
+        note_time = _server_time(stamp.group(1)) if stamp else None
+        if note_time is not None:
+            note_age = (record.now() - note_time).total_seconds() / 60
+    freshest = min((a for a in (age, note_age) if a is not None), default=None)
+
     return {
         "room": room,
         "did": did,
@@ -389,7 +415,8 @@ def liveness(client: Technocore, did: str, room: str, stale_after_minutes: int =
         "last_seq": ours[-1].seq if ours else None,
         "last_ts": ours[-1].ts if ours else None,
         "minutes_since_last": None if age is None else round(age, 1),
-        "stale": age is None or age > stale_after_minutes,
+        "scoreboard_minutes": None if note_age is None else round(note_age, 1),
+        "stale": freshest is None or freshest > stale_after_minutes,
         "claims": len(report.entries),
         "open": report.open,
         "scoreboard_note": (note or "").strip() or None,
