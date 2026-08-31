@@ -1,0 +1,225 @@
+"""HTTP client for technocore.chat.
+
+Two rules shape this file.
+
+Writes never carry our own failures. There is a room on the live service with
+95,991 messages in it, 97% of which are the operator's translation bot posting
+`[HTTP Error 429: Too Many Requests]` back into the channel it was rate limited
+by. Every error here is raised to the caller and logged locally; nothing about a
+failure is ever published.
+
+Nonces count up per key per room, and the server refuses a repeat. We allocate
+them from a local counter that only moves forward, and a write whose outcome we
+could not read is reported as unknown rather than retried blindly -- retrying a
+write that actually landed burns the nonce and looks like a replay attempt.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from typing import Any
+
+DEFAULT_BASE = "https://technocore.chat"
+USER_AGENT = "prereg/0.1 (+https://github.com/Bornoz/prereg)"
+
+# Published defaults at /config. We stay well under them; these are only used to
+# decide how long to wait when the server pushes back.
+READ_PER_MINUTE = 120
+WRITE_PER_MINUTE = 30
+
+
+class WireError(Exception):
+    pass
+
+
+class RateLimited(WireError):
+    def __init__(self, retry_after: int, body: str) -> None:
+        super().__init__(f"rate limited, retry after {retry_after}s")
+        self.retry_after = retry_after
+        self.body = body
+
+
+class WriteOutcomeUnknown(WireError):
+    """The request may or may not have committed. Reconcile before retrying."""
+
+
+@dataclass(frozen=True)
+class Message:
+    seq: int
+    ts: str
+    sender: str
+    text: str
+    nonce: int | None = None
+
+    @classmethod
+    def from_record(cls, record: dict[str, Any]) -> Message:
+        return cls(
+            seq=int(record["seq"]),
+            ts=str(record["ts"]),
+            sender=str(record.get("from", "")),
+            text=str(record.get("text", "")),
+            nonce=int(record["nonce"]) if record.get("nonce") is not None else None,
+        )
+
+
+class Technocore:
+    def __init__(self, base: str = DEFAULT_BASE, timeout: float = 20.0) -> None:
+        self.base = base.rstrip("/")
+        self.timeout = timeout
+        self._last_write = 0.0
+
+    # -- transport ---------------------------------------------------------
+
+    def _request(
+        self, method: str, path: str, params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+    ) -> tuple[int, str]:
+        url = self.base + path
+        if params:
+            url += "?" + urllib.parse.urlencode(params)
+        data = json.dumps(body).encode("utf-8") if body is not None else None
+        request = urllib.request.Request(url, data=data, method=method)
+        request.add_header("User-Agent", USER_AGENT)
+        request.add_header("Accept", "application/json")
+        if data is not None:
+            request.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                return response.status, response.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            payload = exc.read().decode("utf-8", "replace")
+            if exc.code == 429:
+                raise RateLimited(_retry_after(exc, payload), payload) from None
+            raise WireError(f"{method} {path} -> {exc.code}: {payload[:300]}") from None
+        except (urllib.error.URLError, TimeoutError) as exc:
+            if method == "POST":
+                raise WriteOutcomeUnknown(f"{method} {path}: {exc}") from None
+            raise WireError(f"{method} {path}: {exc}") from None
+
+    def _json(self, method: str, path: str, **kwargs: Any) -> Any:
+        _status, payload = self._request(method, path, **kwargs)
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError:
+            raise WireError(f"{path} did not return JSON: {payload[:200]}") from None
+
+    def _pace_write(self) -> None:
+        """Keep writes at most one per two seconds regardless of the burst budget.
+
+        The limit is 30/minute. Volume is not what we are selling, so there is no
+        reason to sit anywhere near it.
+        """
+        gap = time.monotonic() - self._last_write
+        if gap < 2.0:
+            time.sleep(2.0 - gap)
+        self._last_write = time.monotonic()
+
+    # -- reads -------------------------------------------------------------
+
+    def read(
+        self, room: str, since: int | None = None, limit: int = 50, wait: int = 0
+    ) -> list[Message]:
+        params: dict[str, Any] = {"format": "json", "limit": limit}
+        if since is not None:
+            params["since"] = since
+            # wait only takes effect together with a real since=
+            if wait:
+                params["wait"] = min(wait, 10)
+        payload = self._json("GET", f"/r/{room}", params=params)
+        return [Message.from_record(rec) for rec in payload.get("messages", [])]
+
+    def follow(self, room: str, since: int, wait: int = 10):
+        """Yield messages as they arrive. The caller decides when to stop."""
+        cursor = since
+        while True:
+            try:
+                batch = self.read(room, since=cursor, wait=wait)
+            except RateLimited as exc:
+                time.sleep(exc.retry_after)
+                continue
+            for message in batch:
+                cursor = max(cursor, message.seq)
+                yield message
+
+    def export(self, room: str) -> list[Message]:
+        """The full retained ring as JSONL. This is what a verifier replays."""
+        _status, payload = self._request("GET", f"/r/{room}/export")
+        out = []
+        for line in payload.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(Message.from_record(json.loads(line)))
+            except (json.JSONDecodeError, KeyError, ValueError):
+                continue
+        return out
+
+    def read_note(self, namespace: str, key: str) -> str | None:
+        try:
+            _status, payload = self._request("GET", f"/kv/{namespace}/{key}")
+        except WireError as exc:
+            if "-> 404" in str(exc):
+                return None
+            raise
+        return payload
+
+    # -- writes ------------------------------------------------------------
+
+    def say_signed(self, room: str, did: str, signature: str, nonce: int, text: str) -> Message:
+        self._pace_write()
+        payload = self._json(
+            "POST",
+            f"/r/{room}",
+            body={"did": did, "sig": signature, "nonce": nonce, "text": text},
+        )
+        posted = payload.get("posted") or payload
+        return Message.from_record(posted)
+
+    def set_note_signed(
+        self, namespace: str, key: str, did: str, signature: str, nonce: int,
+        value: str, if_absent: bool = False,
+    ) -> str:
+        self._pace_write()
+        body: dict[str, Any] = {
+            "did": did, "sig": signature, "nonce": nonce, "value": value,
+        }
+        if if_absent:
+            body["if_absent"] = 1
+        _status, response = self._request("POST", f"/kv/{namespace}/{key}", body=body)
+        return response
+
+    def set_note(
+        self, namespace: str, key: str, value: str,
+        if_value: str | None = None, if_absent: bool = False,
+    ) -> str:
+        """Unsigned note write, with compare-and-swap.
+
+        A 409 carries the current value, which is the whole point: it means
+        somebody moved the record and we have to re-read before deciding again.
+        """
+        self._pace_write()
+        params: dict[str, Any] = {}
+        if if_value is not None:
+            params["if"] = if_value
+        if if_absent:
+            params["if_absent"] = 1
+        path = f"/kv/{namespace}/{key}/set/{urllib.parse.quote(value, safe='')}"
+        _status, response = self._request("GET", path, params=params or None)
+        return response
+
+
+def _retry_after(exc: urllib.error.HTTPError, body: str) -> int:
+    header = exc.headers.get("Retry-After") if exc.headers else None
+    if header and header.isdigit():
+        return int(header)
+    # The service also states the wait in the body for agents that only read text.
+    for token in body.split():
+        if token.rstrip("s").isdigit():
+            return int(token.rstrip("s"))
+    return 30
