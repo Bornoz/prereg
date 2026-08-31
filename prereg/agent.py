@@ -4,12 +4,17 @@ It runs continuously, but it does not talk continuously. Those are different
 things, and conflating them is what produced the rooms full of `gm from a quiet
 node` this project exists to not be.
 
-Every cycle the agent does four things:
+Every cycle the agent does five things:
 
-  reads   the room, from its last cursor, with a long poll
-  settles any claim whose outcome the resolver can now decide
-  claims  whatever the source has produced since the last pass
-  posts   the scoreboard to a note, under compare-and-swap
+  reads    the room, from its last cursor, with a long poll
+  settles  any of its own claims the resolver can now decide
+  verifies open claims belonging to other keys, by recomputing them
+  claims   whatever the source has produced since the last pass
+  posts    the scoreboard to a note, under compare-and-swap
+
+The verify step is the one that makes this a room rather than a diary. Without
+somebody checking other people's work, an attestation is a statement nobody is
+obliged to test.
 
 Only claims and settlements reach the room, and both are events that actually
 happened. The scoreboard lives in the key-value lane instead, where it can be
@@ -66,12 +71,14 @@ class CycleResult:
     read: int = 0
     claimed: list[str] = field(default_factory=list)
     settled: list[str] = field(default_factory=list)
+    verified: list[str] = field(default_factory=list)
     scoreboard_written: bool = False
     errors: list[str] = field(default_factory=list)
 
     @property
     def quiet(self) -> bool:
-        return not (self.claimed or self.settled or self.scoreboard_written)
+        return not (self.claimed or self.settled or self.verified
+                    or self.scoreboard_written)
 
 
 class Agent:
@@ -85,6 +92,8 @@ class Agent:
         resolver: OutcomeResolver | None = None,
         max_open: int = 40,
         max_claims_per_cycle: int = 3,
+        verifier: OutcomeResolver | None = None,
+        max_verifications_per_cycle: int = 3,
         dry_run: bool = False,
     ) -> None:
         self.identity = identity
@@ -95,6 +104,11 @@ class Agent:
         self.resolver = resolver
         self.max_open = max_open
         self.max_claims_per_cycle = max_claims_per_cycle
+        # Settles claims made by *other* keys. This is the validator half of the
+        # room: without somebody checking other people's work, an attestation
+        # domain has nobody to be accountable to.
+        self.verifier = verifier
+        self.max_verifications_per_cycle = max_verifications_per_cycle
         # Everything except the writes. The first runs of a new deployment use
         # this to prove the whole path works before anything reaches the room,
         # because a claim cannot be unpublished.
@@ -112,12 +126,13 @@ class Agent:
 
         report = score.build(transcript, self.identity.did, self.room)
         self._settle(report, result)
+        self._verify(transcript, result)
         self._claim(report, result)
 
         # Anything published above changed the record, and a scoreboard built
         # from the pre-publish report would be one cycle behind for as long as
         # the agent keeps working. Re-read before writing it.
-        if result.claimed or result.settled:
+        if result.claimed or result.settled or result.verified:
             report = score.build(
                 self.client.export(self.room), self.identity.did, self.room
             )
@@ -143,8 +158,9 @@ class Agent:
                 continue
 
             log.info(
-                "cycle read=%d claimed=%d settled=%d scoreboard=%s%s",
+                "cycle read=%d claimed=%d settled=%d verified=%d scoreboard=%s%s",
                 result.read, len(result.claimed), len(result.settled),
+                len(result.verified),
                 result.scoreboard_written,
                 " quiet" if result.quiet else "",
             )
@@ -192,6 +208,32 @@ class Agent:
             if self._publish(settlement.line(), result):
                 result.settled.append(entry.claim.id)
 
+    def _verify(self, transcript: list, result: CycleResult) -> None:
+        """Settle open claims belonging to other keys."""
+        if self.verifier is None:
+            return
+        for did, other in score.build_all(transcript, self.room).items():
+            if did == self.identity.did:
+                continue
+            for entry in other.entries:
+                if len(result.verified) >= self.max_verifications_per_cycle:
+                    return
+                if entry.settlement is not None:
+                    continue
+                decided = self.verifier.resolve(entry.claim)
+                if decided is None:
+                    continue
+                outcome, proof, note = decided
+                try:
+                    settlement = record.build_settlement(
+                        entry.claim.id, outcome, proof, note
+                    )
+                except record.RecordError as exc:
+                    result.errors.append(f"verification {entry.claim.id}: {exc}")
+                    continue
+                if self._publish(settlement.line(), result):
+                    result.verified.append(entry.claim.id)
+
     def _claim(self, report: score.Report, result: CycleResult) -> None:
         if self.source is None:
             return
@@ -218,9 +260,11 @@ class Agent:
             except record.RecordError as exc:
                 result.errors.append(f"draft {draft.subject}: {exc}")
                 continue
-            # Stored before the write. If the publish succeeds but the response
-            # is lost, the bundle behind the digest still exists.
-            self.store.save_evidence(claim.id, draft.evidence)
+            # Stored before the write, so that a publish whose response is lost
+            # still has the bundle behind its digest. A dry run writes nothing
+            # anywhere, disk included.
+            if not self.dry_run:
+                self.store.save_evidence(claim.id, draft.evidence)
             if self._publish(claim.line(), result):
                 result.claimed.append(claim.id)
                 seen.add(draft.subject)

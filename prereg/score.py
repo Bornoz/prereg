@@ -22,14 +22,30 @@ from prereg.wire import Message
 OPEN = "open"
 EXPIRED = "expired"
 
+# Domains where the claimant may settle its own claim, because settlement is
+# mechanical against data outside the room and anybody can recheck it.
+SELF_SETTLING = ("network", "dex-liquidity")
+
+# Domains where a settlement only counts from a different key. An agent that
+# both attests and settles is agreeing with itself, and a record built out of
+# that is worth nothing.
+INDEPENDENT_ONLY = ("inference",)
+
 
 @dataclass
 class Entry:
     claim: Claim
     claim_seq: int
     claim_ts: str
+    claim_did: str = ""
     settlement: Settlement | None = None
     settlement_seq: int | None = None
+    settled_by: str | None = None
+
+    @property
+    def independently_settled(self) -> bool:
+        """Settled by a key other than the one that made the claim."""
+        return self.settled_by is not None and self.settled_by != self.claim_did
 
     @property
     def state(self) -> str:
@@ -102,19 +118,23 @@ class Report:
 
 
 def build(messages: list[Message], did: str, room: str, at: datetime | None = None) -> Report:
-    """Replay a transcript in sequence order and rebuild the record.
+    """Replay a transcript in sequence order and rebuild one key's record.
 
-    Only messages the server attributed to `did` count. Everything else in the
-    room is somebody else's, and a room is world writable.
+    Claims count only from `did`. Settlements count from anybody, which is what
+    makes this a ledger rather than a set of private diaries -- and for the
+    domains in INDEPENDENT_ONLY, a settlement from the claimant is refused
+    outright and recorded as an anomaly.
     """
     report = Report(did=did, room=room)
     by_id: dict[str, Entry] = {}
 
     for message in sorted(messages, key=lambda m: m.seq):
-        if message.sender != did:
-            continue
         record = parse(message.text)
         if record is None:
+            continue
+        # Claims are only this key's. Settlements may come from anybody: that is
+        # what turns the room from a set of private diaries into one ledger.
+        if isinstance(record, Claim) and message.sender != did:
             continue
 
         if isinstance(record, Claim):
@@ -125,7 +145,8 @@ def build(messages: list[Message], did: str, room: str, at: datetime | None = No
                 )
                 continue
             by_id[record.id] = Entry(
-                claim=record, claim_seq=message.seq, claim_ts=message.ts
+                claim=record, claim_seq=message.seq, claim_ts=message.ts,
+                claim_did=did,
             )
 
         elif isinstance(record, Settlement):
@@ -146,8 +167,15 @@ def build(messages: list[Message], did: str, room: str, at: datetime | None = No
                     f"seq {message.seq}: settlement precedes its claim {record.id}"
                 )
                 continue
+            if entry.claim.domain in INDEPENDENT_ONLY and message.sender == did:
+                report.anomalies.append(
+                    f"seq {message.seq}: {entry.claim.domain} claim {record.id} "
+                    f"cannot be settled by the key that made it"
+                )
+                continue
             entry.settlement = record
             entry.settlement_seq = message.seq
+            entry.settled_by = message.sender
 
     report.entries = sorted(by_id.values(), key=lambda e: e.claim_seq)
     return report

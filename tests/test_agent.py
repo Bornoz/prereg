@@ -249,3 +249,24 @@ def test_an_identity_round_trips_through_the_environment(tmp_path, monkeypatch):
 
     monkeypatch.delenv("PREREG_IDENTITY_PEM")
     assert d.load_from_env("a-long-enough-passphrase") is None
+
+
+def test_the_evidence_bundle_is_stored_with_the_claim(tmp_path):
+    """Published at claim time, on purpose.
+
+    Nobody else can settle a claim without the measurement its threshold is
+    applied against, and a room where only the claimant can settle is a diary.
+    """
+    _ident, client, agent = make(tmp_path, source=OneDraft(draft()),
+                                 resolver=NeverResolves())
+    agent.cycle(wait=0)
+    claim = record.parse(client.messages[0].text)
+    bundle = Store(tmp_path).evidence(claim.id)
+    assert bundle == b"bundle"
+    assert record.evidence_digest(bundle) == claim.evidence
+
+
+def test_a_dry_run_leaves_no_evidence_behind(tmp_path):
+    _ident, _client, agent = make(tmp_path, source=OneDraft(draft()), dry_run=True)
+    agent.cycle(wait=0)
+    assert not (tmp_path / "evidence").exists()

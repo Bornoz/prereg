@@ -265,6 +265,37 @@ def _room() -> str:
     return "mb- yes; d- and unsigned no"
 
 
+@check("an attestation cannot be settled by the key that made it")
+def _independence() -> str:
+    """Without this the inference domain is a conversation with itself."""
+    from datetime import timedelta
+
+    from prereg import record, score
+    from prereg.wire import Message
+
+    mine = "did:key:z6Mk" + "8" * 44
+    theirs = "did:key:z6Mk" + "9" * 44
+    claim = record.Claim(
+        id="aaaaaaaaaaaa", domain="inference", subject="f" * 64, call="reproduces",
+        confidence=0.95, deadline=record.now() + timedelta(hours=24),
+        evidence="a" * 64, text="inference/1 op=writer_count room=lobby from=1 to=50",
+    )
+    settle = record.build_settlement(claim.id, "hit", "digest-abc", "recomputed")
+
+    def replay(settler):
+        return score.build([
+            Message(seq=1, ts="t", sender=mine, text=claim.line()),
+            Message(seq=2, ts="t", sender=settler, text=settle.line()),
+        ], mine, "mb-prereg")
+
+    assert replay(mine).entries[0].settlement is None, "self-settlement was accepted"
+    independent = replay(theirs).entries[0]
+    assert independent.state == "hit", "an independent settlement was refused"
+    assert independent.independently_settled
+    assert "inference" in score.INDEPENDENT_ONLY
+    return "self-settlement refused, independent settlement accepted"
+
+
 @check("scoring covers every key in the room, not only ours")
 def _multi() -> str:
     from prereg import score

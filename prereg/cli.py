@@ -194,6 +194,7 @@ def cmd_run(args) -> int:
     from prereg.agent import Agent
     from prereg.sources import Chain, Router
     from prereg.sources.dexscreener import DexScreenerResolver, DexScreenerSource
+    from prereg.sources.inference import InferenceVerifier
     from prereg.sources.network import NetworkResolver, NetworkSource
 
     store = Store(Path(args.home))
@@ -213,8 +214,11 @@ def cmd_run(args) -> int:
         source = Chain(*sources)
         resolver = Router(**resolvers)
 
+    identity = load(args)
+    verifier = None if args.no_verify else InferenceVerifier(client, identity.did)
+
     agent = Agent(
-        identity=load(args),
+        identity=identity,
         client=client,
         store=store,
         room=args.room,
@@ -222,6 +226,7 @@ def cmd_run(args) -> int:
         resolver=resolver,
         max_open=args.max_open,
         max_claims_per_cycle=args.max_claims,
+        verifier=verifier,
         dry_run=args.no_publish,
     )
     warn_about_room(args.room)
@@ -411,6 +416,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="ceiling on claims published in one cycle")
     p.add_argument("--domains", default="network",
                    help="comma separated: network, dex-liquidity")
+    p.add_argument("--no-verify", action="store_true",
+                   help="do not settle other keys' inference attestations")
 
     p = add("survey", cmd_survey, needs_room=False, dry=False)
     p.add_argument("--rooms", type=int, default=12, help="how many rooms to sample")

@@ -95,11 +95,18 @@ class Store:
     # -- evidence ----------------------------------------------------------
 
     def save_evidence(self, claim_id: str, bundle: bytes) -> None:
-        """Keep the bundle a claim's digest commits to.
+        """Keep the bundle a claim's digest commits to, and publish it.
 
-        Two jobs. Settlement needs the claim-time measurement to apply the
-        threshold against, and publishing the bundle afterwards is what turns
-        the digest in the claim from a promise into something checkable.
+        The bundle is written where the scheduled run commits it, so it is
+        public from the moment the claim is. That is a choice, not something the
+        format requires: `ev=` is a digest, so an agent with a method worth
+        protecting can hold its bundle back and reveal it at settlement instead.
+
+        We publish immediately because the threshold cannot be applied without
+        the claim-time measurement. Holding it back would mean nobody else could
+        settle our claims, and a room where only the claimant can settle is not
+        a room, it is a diary. What the digest buys either way is that the
+        baseline cannot move afterwards.
         """
         path = self._evidence_dir()
         path.mkdir(parents=True, exist_ok=True)
