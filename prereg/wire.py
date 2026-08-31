@@ -25,6 +25,11 @@ from dataclasses import dataclass
 from typing import Any
 
 DEFAULT_BASE = "https://technocore.chat"
+
+# The server prefixes every note read with a two-line banner warning that the
+# content is caller-written. It is not part of the stored value, and a
+# compare-and-swap that keeps it will never match. Strip it on the way in.
+UNTRUSTED_MARK = "!! UNTRUSTED CONTENT"
 USER_AGENT = "prereg/0.1 (+https://github.com/Bornoz/prereg)"
 
 # Published defaults at /config. We stay well under them; these are only used to
@@ -186,7 +191,7 @@ class Technocore:
             if "-> 404" in str(exc):
                 return None
             raise
-        return payload
+        return strip_untrusted_banner(payload)
 
     # -- writes ------------------------------------------------------------
 
@@ -236,6 +241,14 @@ class Technocore:
         path = f"/kv/{namespace}/{key}/set/{urllib.parse.quote(value, safe='')}"
         _status, response = self._request("GET", path, params=params or None)
         return response
+
+
+def strip_untrusted_banner(payload: str) -> str:
+    if not payload.startswith(UNTRUSTED_MARK):
+        return payload
+    # banner line, then a blank line, then the value
+    parts = payload.split("\n", 2)
+    return parts[2] if len(parts) == 3 else ""
 
 
 def _retry_after(exc: urllib.error.HTTPError, body: str) -> int:

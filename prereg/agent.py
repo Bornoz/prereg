@@ -295,31 +295,26 @@ class Agent:
         key, in the lane built for state.
         """
         line = _scoreboard_line(report)
+        # The at= stamp moves every cycle, so comparing the whole line would
+        # rewrite the note every time. Compare the record without the stamp, and
+        # let the heartbeat force a refresh when the content is genuinely idle.
+        content = _without_stamp(line)
         if self.dry_run:
             log.info("would set scoreboard note: %s", line)
             return
-        if line == self._scoreboard_cache and not self._heartbeat_due():
+        if content == self._scoreboard_cache and not self._heartbeat_due():
             return
         key = _fingerprint(self.identity.did)
         try:
-            current = self.client.read_note(SCOREBOARD_NS, key)
-            if (current is not None and current.strip() == line
-                    and not self._heartbeat_due()):
-                self._scoreboard_cache = line
-                return
-            self.client.set_note(
-                SCOREBOARD_NS, key, line,
-                if_value=current if current is not None else None,
-                if_absent=current is None,
-            )
+            # A plain last-writer-wins set. The note is a convenience, never
+            # authority -- verify.py rebuilds the record from the room and
+            # ignores it -- and the only writer to this key is us, so there is
+            # no race worth a compare-and-swap and its banner-stripping fragility.
+            self.client.set_note(SCOREBOARD_NS, key, line)
         except WireError as exc:
-            # A 409 means somebody else moved it, which for our own key means the
-            # previous write landed after all. Re-read next cycle rather than
-            # forcing it.
             result.errors.append(f"scoreboard: {exc}")
-            self._scoreboard_cache = None
             return
-        self._scoreboard_cache = line
+        self._scoreboard_cache = content
         self._heartbeat_at = time.monotonic()
         result.scoreboard_written = True
 
@@ -348,6 +343,11 @@ class Agent:
             return False
         self.store.set_cursor(self.room, posted.seq)
         return True
+
+
+def _without_stamp(line: str) -> str:
+    """The scoreboard line minus its trailing at= stamp, for change detection."""
+    return line.split(" at=", 1)[0]
 
 
 def _scoreboard_line(report: score.Report) -> str:
