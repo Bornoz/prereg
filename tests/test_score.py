@@ -11,7 +11,7 @@ ROOM = "d-prereg"
 
 def claim_line(claim_id, hours, confidence=0.8):
     return record.Claim(
-        id=claim_id, chain="base", subject="0xabc", call="rug",
+        id=claim_id, domain="dex-liquidity", subject="0xabc", call="rug",
         confidence=confidence, deadline=record.now() + timedelta(hours=hours),
         evidence=DIGEST, text="because",
     ).line()

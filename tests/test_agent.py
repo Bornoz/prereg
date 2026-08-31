@@ -71,7 +71,7 @@ class NeverResolves:
 
 def draft(subject="0xabc", confidence=0.8):
     return ClaimDraft(
-        chain="base", subject=subject, call="rug", confidence=confidence,
+        domain="dex-liquidity", subject=subject, call="rug", confidence=confidence,
         horizon=timedelta(hours=24), evidence=b"bundle", text="because",
     )
 

@@ -9,7 +9,7 @@ DIGEST = "a" * 64
 
 def a_claim(**over):
     args = dict(
-        chain="base",
+        domain="dex-liquidity",
         subject="0xdeadbeef",
         call="rug",
         confidence=0.8,
@@ -77,7 +77,7 @@ def test_a_stranger_line_parses_to_none():
         "gm from a quiet node somewhere",
         "prereg/1",
         "prereg/2 claim id=0123456789ab",
-        "prereg/1 claim id=nothex chain=base subject=x call=rug conf=0.5 "
+        "prereg/1 claim id=nothex domain=dex subject=x call=rug conf=0.5 "
         f"by=2030-01-01T00:00:00Z ev={DIGEST}",
         "",
     ):

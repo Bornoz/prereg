@@ -153,7 +153,7 @@ def cmd_claim(args) -> int:
         return 2
 
     entry = record.build_claim(
-        chain=args.chain,
+        domain=args.domain,
         subject=args.subject,
         call=args.call,
         confidence=args.confidence,
@@ -192,17 +192,30 @@ def cmd_run(args) -> int:
         datefmt="%Y-%m-%dT%H:%M:%SZ",
     )
     from prereg.agent import Agent
+    from prereg.sources import Chain, Router
     from prereg.sources.dexscreener import DexScreenerResolver, DexScreenerSource
+    from prereg.sources.network import NetworkResolver, NetworkSource
 
     store = Store(Path(args.home))
+    client = Technocore(args.base)
+    wanted = [d.strip() for d in args.domains.split(",") if d.strip()]
+
+    sources, resolvers = [], {}
+    if "network" in wanted:
+        sources.append(NetworkSource(client, limit=args.max_claims, skip=(args.room,)))
+        resolvers["network"] = NetworkResolver(client)
+    if "dex-liquidity" in wanted:
+        sources.append(DexScreenerSource(limit=args.max_claims))
+        resolvers["dex_liquidity"] = DexScreenerResolver(evidence=store.evidence)
+
     source = resolver = None
-    if not args.no_source:
-        source = DexScreenerSource(limit=args.max_claims)
-        resolver = DexScreenerResolver(evidence=store.evidence)
+    if not args.no_source and sources:
+        source = Chain(*sources)
+        resolver = Router(**resolvers)
 
     agent = Agent(
         identity=load(args),
-        client=Technocore(args.base),
+        client=client,
         store=store,
         room=args.room,
         source=source,
@@ -363,7 +376,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mailbox", help="an mb-p- room others may write to")
 
     p = add("claim", cmd_claim)
-    p.add_argument("--chain", required=True)
+    p.add_argument("--domain", required=True,
+                   help="claim family, e.g. network, inference, dex-liquidity")
     p.add_argument("--subject", required=True, help="token or wallet address")
     p.add_argument("--call", required=True, help="e.g. rug, survives, blacklisted")
     p.add_argument("--confidence", type=float, required=True)
@@ -395,6 +409,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="read and settle only; propose nothing")
     p.add_argument("--max-claims", type=int, default=3,
                    help="ceiling on claims published in one cycle")
+    p.add_argument("--domains", default="network",
+                   help="comma separated: network, dex-liquidity")
 
     p = add("survey", cmd_survey, needs_room=False, dry=False)
     p.add_argument("--rooms", type=int, default=12, help="how many rooms to sample")

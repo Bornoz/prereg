@@ -107,7 +107,8 @@ def test_a_bad_listing_becomes_a_rug_draft():
     drafts = source.pending()
     assert len(drafts) == 1
     assert drafts[0].call == "rug"
-    assert drafts[0].subject == "0xbad"
+    assert drafts[0].subject == "base:0xbad"
+    assert drafts[0].domain == "dex-liquidity"
     assert drafts[0].confidence >= CALL_RUG_AT
     assert json.loads(drafts[0].evidence)["liquidity_usd"] == 8_000
 
@@ -165,7 +166,7 @@ def claim_for(store, claim_id="aaaaaaaaaaaa", call="rug", liquidity=50_000, hour
     bundle = snap(liquidity_usd=liquidity).bundle()
     store.save_evidence(claim_id, bundle)
     return record.Claim(
-        id=claim_id, chain="base", subject="0xabc", call=call, confidence=0.8,
+        id=claim_id, domain="dex-liquidity", subject="base:0xabc", call=call, confidence=0.8,
         deadline=record.now() + timedelta(hours=hours),
         evidence=record.evidence_digest(bundle), text="because",
     )

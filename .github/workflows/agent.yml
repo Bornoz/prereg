@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PREREG_ROOM: ${{ vars.PREREG_ROOM || 'mb-prereg' }}
+      PREREG_DOMAINS: ${{ vars.PREREG_DOMAINS || 'network' }}
       PREREG_HOME: ${{ github.workspace }}/record
       PREREG_PASSPHRASE: ${{ secrets.PREREG_PASSPHRASE }}
       PREREG_IDENTITY_PEM: ${{ secrets.PREREG_IDENTITY_PEM }}
@@ -56,7 +57,7 @@ jobs:
 
       - name: one cycle
         if: steps.ready.outputs.ready == 'true'
-        run: prereg run --room "$PREREG_ROOM" --cycles 1 --interval 0
+        run: prereg run --room "$PREREG_ROOM" --cycles 1 --interval 0 --domains "$PREREG_DOMAINS"
 
       - name: write the public record
         if: steps.ready.outputs.ready == 'true'

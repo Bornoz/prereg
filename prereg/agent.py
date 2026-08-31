@@ -42,7 +42,7 @@ SCOREBOARD_NS = "prereg"
 class ClaimDraft:
     """What a detector hands over. The agent owns ids, deadlines and signing."""
 
-    chain: str
+    domain: str
     subject: str
     call: str
     confidence: float
@@ -207,7 +207,7 @@ class Agent:
                 continue
             try:
                 claim = record.build_claim(
-                    chain=draft.chain,
+                    domain=draft.domain,
                     subject=draft.subject,
                     call=draft.call,
                     confidence=draft.confidence,

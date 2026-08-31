@@ -260,8 +260,8 @@ class DexScreenerSource:
 
         rug = probability >= CALL_RUG_AT
         return ClaimDraft(
-            chain=snap.chain,
-            subject=snap.address,
+            domain="dex-liquidity",
+            subject=f"{snap.chain}:{snap.address}",
             call="rug" if rug else "holds",
             confidence=probability if rug else 1.0 - probability,
             horizon=self.horizon,
@@ -290,7 +290,8 @@ class DexScreenerResolver:
         from prereg.record import now
 
         expired = claim.deadline <= now()
-        snap = snapshot(claim.chain, claim.subject, self.fetch)
+        _domain, _, address = claim.subject.partition(":")
+        snap = snapshot(_domain, address, self.fetch)
 
         if snap is None:
             # No pair at all. That is a collapse under the definition, and it is

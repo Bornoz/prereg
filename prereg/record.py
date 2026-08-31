@@ -1,5 +1,12 @@
 """The line format for a pre-registered claim and its settlement.
 
+A claim names a domain, a subject inside it, and a call about that subject. The
+domain is what keeps this from being one application's file format: `network`
+claims are about rooms on this service, `inference` claims are about work an
+agent says it performed, `dex-liquidity` claims are about tokens. The machinery
+underneath -- commit before the outcome, settle after, score everyone the same
+way -- does not care which.
+
 A claim is published before the outcome is known and names a deadline. A
 settlement is published afterwards and says what happened. Both are one line,
 signed, and fit inside the 4096-character message cap.
@@ -70,7 +77,7 @@ def evidence_digest(payload: bytes) -> str:
 @dataclass(frozen=True)
 class Claim:
     id: str
-    chain: str
+    domain: str
     subject: str
     call: str
     confidence: float
@@ -84,7 +91,7 @@ class Claim:
                 VERSION,
                 CLAIM,
                 f"id={self.id}",
-                f"chain={self.chain}",
+                f"domain={self.domain}",
                 f"subject={self.subject}",
                 f"call={self.call}",
                 f"conf={self.confidence:.2f}",
@@ -118,12 +125,12 @@ class Settlement:
 
 
 def build_claim(
-    chain: str, subject: str, call: str, confidence: float,
+    domain: str, subject: str, call: str, confidence: float,
     deadline: datetime, evidence: str, text: str, claim_id: str | None = None,
 ) -> Claim:
     claim = Claim(
         id=claim_id or new_id(),
-        chain=_word("chain", chain),
+        domain=_word("domain", domain),
         subject=_subject(subject),
         call=_word("call", call),
         confidence=_confidence(confidence),
@@ -179,7 +186,7 @@ def parse(line: str) -> Claim | Settlement | None:
         if kind == CLAIM:
             return Claim(
                 id=_required(fields, "id", ID_RE),
-                chain=_required(fields, "chain", WORD_RE),
+                domain=_required(fields, "domain", WORD_RE),
                 subject=_required(fields, "subject", SUBJECT_RE),
                 call=_required(fields, "call", WORD_RE),
                 confidence=_confidence(float(fields["conf"])),

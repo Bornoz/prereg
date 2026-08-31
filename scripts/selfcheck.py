@@ -155,7 +155,7 @@ def _no_hiding() -> str:
 
     did = "did:key:z6Mk" + "1" * 44
     stale = record.Claim(
-        id="aaaaaaaaaaaa", chain="base", subject="0xabc", call="rug",
+        id="aaaaaaaaaaaa", domain="network", subject="room:loop", call="bot",
         confidence=0.9, deadline=record.now() - timedelta(hours=1),
         evidence="a" * 64, text="never settled",
     )
@@ -172,34 +172,84 @@ def _no_hiding() -> str:
     return f"expired -> accuracy {report.accuracy}, brier {report.brier:.2f}"
 
 
-@check("the settlement definition has not moved")
+@check("every settlement definition has not moved")
 def _frozen() -> str:
     from prereg.sources import dexscreener as ds
+    from prereg.sources import network as ns
 
     frozen = {
-        "RUG_LIQUIDITY_FRACTION": 0.20,
-        "MAX_PAIR_AGE_HOURS": 48.0,
-        "MIN_LIQUIDITY_USD": 5_000.0,
-        "CALL_RUG_AT": 0.70,
-        "CALL_HOLDS_AT": 0.30,
+        ds: {"RUG_LIQUIDITY_FRACTION": 0.20, "MAX_PAIR_AGE_HOURS": 48.0,
+             "MIN_LIQUIDITY_USD": 5_000.0, "CALL_RUG_AT": 0.70, "CALL_HOLDS_AT": 0.30},
+        ns: {"BOT_AT": 0.15, "HUMAN_ABOVE": 0.40, "SAMPLE": 200,
+             "MIN_SAMPLE_TO_JUDGE": 50},
     }
-    for name, expected in frozen.items():
-        actual = getattr(ds, name)
-        assert actual == expected, (
-            f"{name} is {actual}, was {expected}. A record is only worth the "
-            f"stability of the rule it was scored under. If this change is "
-            f"deliberate, the old claims have to be retired, not rescored."
-        )
-    return ", ".join(f"{k}={v}" for k, v in frozen.items())
+    count = 0
+    for module, constants in frozen.items():
+        for name, expected in constants.items():
+            actual = getattr(module, name)
+            assert actual == expected, (
+                f"{module.__name__}.{name} is {actual}, was {expected}. A record "
+                f"is only worth the stability of the rule it was scored under. If "
+                f"this is deliberate, the old claims have to be retired, not rescored."
+            )
+            count += 1
+    return f"{count} thresholds across {len(frozen)} domains, all unchanged"
 
 
-@check("the model abstains rather than calling everything")
+@check("every source abstains rather than calling everything")
 def _abstains() -> str:
     from prereg.sources.dexscreener import CALL_HOLDS_AT, CALL_RUG_AT
+    from prereg.sources.network import BOT_MARGIN, HUMAN_MARGIN
 
-    width = CALL_RUG_AT - CALL_HOLDS_AT
-    assert width >= 0.25, f"abstention band is only {width:.2f} wide"
-    return f"no claim between p={CALL_HOLDS_AT} and p={CALL_RUG_AT}"
+    dex = CALL_RUG_AT - CALL_HOLDS_AT
+    net = HUMAN_MARGIN - BOT_MARGIN
+    assert dex >= 0.25, f"dex abstention band is only {dex:.2f} wide"
+    assert net >= 0.25, f"network abstention band is only {net:.2f} wide"
+    return f"dex silent over {dex:.2f}, network silent over {net:.2f}"
+
+
+@check("the record format is not tied to one application")
+def _domain_agnostic() -> str:
+    """The repositioning this project needed.
+
+    A claim used to carry `chain=`, which made it a crypto file format wearing a
+    protocol's name. `domain=` is what lets the network, inference and liquidity
+    families share one room, one scoring rule and one verifier.
+    """
+    import inspect
+
+    from prereg.record import Claim, build_claim
+
+    fields = set(Claim.__dataclass_fields__)
+    assert "domain" in fields, "a claim no longer names its domain"
+    assert "chain" not in fields, "the crypto-specific field is back"
+    assert "domain" in inspect.signature(build_claim).parameters
+    return f"claim fields: {', '.join(sorted(fields))}"
+
+
+@check("the flagship domain is about this network, not about tokens")
+def _on_thesis() -> str:
+    """Checked because it is the thing that drifted once already.
+
+    Flop is a compute and payment network for agents; technocore.chat is the
+    piece of it that exists. A room whose only claims were about memecoin
+    liquidity would be using the chat and contributing nothing to it.
+    """
+    import subprocess
+
+    from prereg.sources.network import DOMAIN
+
+    assert DOMAIN == "network"
+    workflow = (ROOT / ".github" / "workflows" / "agent.yml").read_text()
+    assert "--domains" not in workflow or "network" in workflow, (
+        "the scheduled agent does not run the network domain"
+    )
+    default = subprocess.run(
+        [sys.executable, "-m", "prereg.cli", "run", "--help"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout
+    assert "network" in default, "network is not offered as a domain"
+    return "network claims are the default domain"
 
 
 # -- the room -------------------------------------------------------------
