@@ -109,3 +109,11 @@ def test_the_untrusted_banner_is_stripped_from_a_note_read(monkeypatch):
 def test_a_note_without_a_banner_is_returned_as_is(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", raising_ok("plain value"))
     assert wire.Technocore("https://x").read_note("prereg", "abc") == "plain value"
+
+
+def test_a_room_read_that_comes_back_as_text_is_treated_as_empty(monkeypatch):
+    # Under load the service sometimes answers a room read as text/plain even
+    # with format=json. A cycle must read that as "nothing new", not crash.
+    monkeypatch.setattr(urllib.request, "urlopen",
+                        raising_ok("# room mb-prereg  messages 5  range 1..5"))
+    assert wire.Technocore("https://x").read("mb-prereg", since=1) == []

@@ -150,7 +150,15 @@ class Technocore:
             # wait only takes effect together with a real since=
             if wait:
                 params["wait"] = min(wait, 10)
-        payload = self._json("GET", f"/r/{room}", params=params)
+        status, raw = self._request("GET", f"/r/{room}", params=params)
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            # The service occasionally answers a room read as text/plain even with
+            # format=json (seen right after a write, under load). That is a
+            # transient it recovers from; treat it as "no new messages this pass"
+            # rather than a hard error that aborts the cycle.
+            return []
         return [Message.from_record(rec) for rec in payload.get("messages", [])]
 
     def follow(self, room: str, since: int, wait: int = 10):
