@@ -118,9 +118,13 @@ def check_text(root: Path) -> list[str]:
             if count:
                 found.append(f"{rel}: {count}x {word!r}")
         for line_no, line in enumerate(text.splitlines(), 1):
+            # The trailer pattern belongs here too, not only in commit messages.
+            # A pasted transcript or a copied changelog carries it into a file,
+            # and the first version of this scanner walked straight past that.
+            if TRAILERS.search(line):
+                found.append(f"{rel}:{line_no}: assistant trailer in file content")
             if EMOJI.search(line):
                 found.append(f"{rel}:{line_no}: emoji in text")
-                break
     return found
 
 
