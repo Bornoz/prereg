@@ -85,7 +85,7 @@ def test_a_looping_room_becomes_a_bot_claim():
     drafts = source.pending()
     assert len(drafts) == 1
     assert drafts[0].domain == "network"
-    assert drafts[0].call == "bot"
+    assert drafts[0].call == "templated"
     assert drafts[0].subject == "room:loop"
     assert drafts[0].confidence >= 0.8
     assert json.loads(drafts[0].evidence)["room"] == "loop"
@@ -94,7 +94,7 @@ def test_a_looping_room_becomes_a_bot_claim():
 def test_a_varied_room_becomes_a_human_claim():
     drafts = NetworkSource(FakeClient({"talk": varied()})).pending()
     assert len(drafts) == 1
-    assert drafts[0].call == "human"
+    assert drafts[0].call == "varied"
 
 
 def test_a_room_in_the_middle_produces_nothing():
@@ -191,3 +191,29 @@ def test_the_router_sends_a_claim_to_its_own_domain():
                     deadline=record.now() - timedelta(hours=1),
                     evidence="c" * 64, text="")
     ) is None
+
+
+
+def test_the_legacy_bot_human_calls_still_settle():
+    """The first live claims used bot/human; the resolver must honour them."""
+    looping_room = NetworkResolver(FakeClient({"loop": looping()}))
+    varied_room = NetworkResolver(FakeClient({"loop": varied()}))
+    assert looping_room.resolve(claim(call="bot"))[0] == "hit"
+    assert varied_room.resolve(claim(call="human"))[0] == "hit"
+    assert looping_room.resolve(claim(call="human"))[0] == "miss"
+
+
+def test_the_new_templated_varied_calls_settle():
+    looping_room = NetworkResolver(FakeClient({"loop": looping()}))
+    varied_room = NetworkResolver(FakeClient({"loop": varied()}))
+    assert looping_room.resolve(claim(call="templated"))[0] == "hit"
+    assert varied_room.resolve(claim(call="varied"))[0] == "hit"
+    assert varied_room.resolve(claim(call="templated"))[0] == "miss"
+
+
+def test_the_source_never_emits_the_legacy_names():
+    from prereg.sources.network import NetworkSource
+
+    for fixture in (looping(), varied()):
+        drafts = NetworkSource(FakeClient({"r": fixture})).pending()
+        assert all(d.call in ("templated", "varied") for d in drafts)

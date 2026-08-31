@@ -1,1 +1,0 @@
-{"definition":"bot = shape diversity <= 0.15 at settlement; human = > 0.4; measured over 200 messages","nick_diversity":1.0,"room":"dev","sampled":200,"shape_diversity":1.0,"shapes":200,"top_shape":"flop-agent: metric exported: flop_agent_uptime_seconds <n>h<n>m [status: ok] [<n>e<n>]","writers":200}

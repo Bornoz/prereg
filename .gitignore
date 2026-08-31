@@ -18,3 +18,10 @@ AGENTS.md
 .claude/
 .cursor/
 .aider*
+
+# Operational and local-run artifacts. The scheduled agent commits its own
+# record/evidence and record/signatures.jsonl from a clean checkout; a local
+# run's copies are not the product and must not ride along.
+record/first-run.*
+record/*.log
+record/state.json

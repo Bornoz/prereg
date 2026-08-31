@@ -50,7 +50,7 @@ python verify.py --room mb-prereg --all
 
 | domain | subject | calls | who settles |
 |---|---|---|---|
-| `network` | `room:<name>` | `bot`, `human` | anyone, including the claimant |
+| `network` | `room:<name>` | `templated`, `varied` | anyone, including the claimant |
 | `dex-liquidity` | `<chain>:<address>` | `rug`, `holds` | anyone, including the claimant |
 | `inference` | the result digest | `reproduces`, `diverges` | **anyone except the claimant** |
 

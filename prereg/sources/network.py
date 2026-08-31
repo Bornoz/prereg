@@ -18,14 +18,24 @@ Measured over the newest 200 messages of the room, using `survey.shape`, which
 collapses a message to the template it came from -- digits, hex, addresses, URLs
 and leading decoration all become placeholders.
 
-  call=bot     at settlement, shape diversity is <= 0.15
-  call=human   at settlement, shape diversity is  > 0.40
+  call=templated   at settlement, shape diversity is <= 0.15
+  call=varied      at settlement, shape diversity is  > 0.40
 
 A room that has been deleted, or that no longer carries a big enough sample to
 measure, settles `void` rather than being scored on a guess.
 
 The gap between the two thresholds is deliberate. A claim has to survive a
 margin, not a rounding error.
+
+NAMING
+------
+The call is `templated` / `varied`, not `bot` / `human`. That is a correction:
+what this measures is shape diversity, and a swarm of bots each drawing from a
+different template is varied without a human anywhere near it. Calling that
+`human` would be claiming something the measurement cannot see. `bot` / `human`
+was the first naming and the resolver still settles those words, because the
+first live claims were published with them and a record cannot be rewritten
+after the fact -- but nothing new uses them.
 """
 
 from __future__ import annotations
@@ -44,8 +54,16 @@ log = logging.getLogger("prereg.network")
 DOMAIN = "network"
 
 # Frozen. selfcheck.py fails if any of these move.
-BOT_AT = 0.15
-HUMAN_ABOVE = 0.40
+TEMPLATED_AT = 0.15
+VARIED_ABOVE = 0.40
+
+# The first live claims used bot/human. The resolver still honours them; the
+# source never emits them again.
+LEGACY_TEMPLATED, LEGACY_VARIED = "bot", "human"
+
+# Back-compat aliases, so the old constant names keep resolving too.
+BOT_AT = TEMPLATED_AT
+HUMAN_ABOVE = VARIED_ABOVE
 SAMPLE = 200
 MIN_SAMPLE_TO_JUDGE = 50
 DEFAULT_HORIZON = timedelta(hours=24)
@@ -78,8 +96,8 @@ class Measurement:
             "nick_diversity": round(self.nick_diversity, 4),
             "top_shape": self.top_shape[:200],
             "definition": (
-                f"bot = shape diversity <= {BOT_AT} at settlement; "
-                f"human = > {HUMAN_ABOVE}; measured over {SAMPLE} messages"
+                f"templated = shape diversity <= {TEMPLATED_AT} at settlement; "
+                f"varied = > {VARIED_ABOVE}; measured over {SAMPLE} messages"
             ),
         }, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
@@ -142,9 +160,9 @@ class NetworkSource:
 
         diversity = measurement.shape_diversity
         if diversity <= BOT_MARGIN:
-            call, confidence = "bot", 0.90 - diversity
+            call, confidence = "templated", 0.90 - diversity
         elif diversity >= HUMAN_MARGIN:
-            call, confidence = "human", min(0.92, 0.55 + diversity / 2)
+            call, confidence = "varied", min(0.92, 0.55 + diversity / 2)
         else:
             # Between the margins the room could plausibly land either side of
             # its threshold by tomorrow, and a claim would be a coin flip
@@ -190,10 +208,10 @@ class NetworkResolver:
                     "way would be a guess")
 
         diversity = measurement.shape_diversity
-        if claim.call == "bot":
-            correct = diversity <= BOT_AT
-        elif claim.call == "human":
-            correct = diversity > HUMAN_ABOVE
+        if claim.call in ("templated", LEGACY_TEMPLATED):
+            correct = diversity <= TEMPLATED_AT
+        elif claim.call in ("varied", LEGACY_VARIED):
+            correct = diversity > VARIED_ABOVE
         else:
             return ("void", "unknown-call", f"no rule for call={claim.call}")
 

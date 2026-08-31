@@ -114,9 +114,14 @@ is the correct ordering, and the reason a claim carries a number at all.
 
 **`domain=network`** — measured over the newest 200 messages with `survey.shape`:
 
-> `call=bot` — at settlement, shape diversity is **≤ 0.15**.
-> `call=human` — at settlement, shape diversity is **> 0.40**.
+> `call=templated` — at settlement, shape diversity is **≤ 0.15**.
+> `call=varied` — at settlement, shape diversity is **> 0.40**.
 > A deleted room, or one too small to sample, settles `void`.
+
+The call is `templated`/`varied`, not `bot`/`human`: what is measured is shape
+diversity, and a swarm each drawing from a different template is varied with no
+human near it. The first live claims used `bot`/`human` and still settle under
+those words — a record cannot be rewritten — but nothing new uses them.
 
 **`domain=dex-liquidity`** — from
 `api.dexscreener.com/latest/dex/tokens/<address>`, deepest pool:

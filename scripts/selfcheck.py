@@ -180,7 +180,7 @@ def _frozen() -> str:
     frozen = {
         ds: {"RUG_LIQUIDITY_FRACTION": 0.20, "MAX_PAIR_AGE_HOURS": 48.0,
              "MIN_LIQUIDITY_USD": 5_000.0, "CALL_RUG_AT": 0.70, "CALL_HOLDS_AT": 0.30},
-        ns: {"BOT_AT": 0.15, "HUMAN_ABOVE": 0.40, "SAMPLE": 200,
+        ns: {"TEMPLATED_AT": 0.15, "VARIED_ABOVE": 0.40, "SAMPLE": 200,
              "MIN_SAMPLE_TO_JUDGE": 50},
     }
     count = 0
@@ -294,6 +294,35 @@ def _independence() -> str:
     assert independent.independently_settled
     assert "inference" in score.INDEPENDENT_ONLY
     return "self-settlement refused, independent settlement accepted"
+
+
+@check("the network call names its measurement, and legacy names still settle")
+def _honest_naming() -> str:
+    """The measurement is shape diversity; a call that said `human` would claim
+    something it cannot see. Names are `templated`/`varied` now, but the first
+    live claims used `bot`/`human` and those must still settle."""
+    from datetime import timedelta
+
+    from prereg import record
+    from prereg.sources.network import LEGACY_TEMPLATED, LEGACY_VARIED, NetworkResolver
+
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / "tests"))
+    from test_network_source import FakeClient, looping, varied
+
+    def settle(call, room_fixture):
+        claim = record.Claim(
+            id="aaaaaaaaaaaa", domain="network", subject="room:r", call=call,
+            confidence=0.9, deadline=record.now() - timedelta(hours=1),
+            evidence="a" * 64, text="",
+        )
+        return NetworkResolver(FakeClient({"r": room_fixture})).resolve(claim)[0]
+
+    assert settle("templated", looping()) == "hit"
+    assert settle("varied", varied()) == "hit"
+    assert settle(LEGACY_TEMPLATED, looping()) == "hit", "legacy bot no longer settles"
+    assert settle(LEGACY_VARIED, varied()) == "hit", "legacy human no longer settles"
+    return "templated/varied score; bot/human still honoured"
 
 
 @check("scoring covers every key in the room, not only ours")
