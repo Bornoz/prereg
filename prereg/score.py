@@ -153,6 +153,60 @@ def build(messages: list[Message], did: str, room: str, at: datetime | None = No
     return report
 
 
+def build_all(messages: list[Message], room: str) -> dict[str, Report]:
+    """Score every key that has published a record, not just our own.
+
+    This is what makes the room worth having. A single agent keeping its own
+    score needs no shared substrate; it could publish anywhere. A room where any
+    key can commit to a claim and every key is scored under the same replay
+    needs exactly one ordered, signed, append-only log that nobody owns.
+    """
+    senders = {
+        message.sender
+        for message in messages
+        if message.sender.startswith("did:key:") and parse(message.text) is not None
+    }
+    reports = {did: build(messages, did, room) for did in senders}
+    return {did: r for did, r in reports.items() if r.entries}
+
+
+def leaderboard(reports: dict[str, Report], min_scored: int = 5) -> list[Report]:
+    """Ranked by Brier, which is the only one of these numbers that cannot be
+    gamed by picking easy calls: it charges for confidence as well as direction.
+
+    Keys with too little settled history are listed but not ranked. A record of
+    one lucky call is not a record.
+    """
+    ranked = [r for r in reports.values() if r.settled >= min_scored and r.brier is not None]
+    ranked.sort(key=lambda r: (r.brier, -r.settled))
+    return ranked
+
+
+def leaderboard_table(reports: dict[str, Report], min_scored: int = 5) -> str:
+    ranked = leaderboard(reports, min_scored)
+    unranked = [r for r in reports.values() if r not in ranked]
+
+    lines = [f"{'#':>2}  {'identity':22} {'brier':>7} {'acc':>6} {'scored':>6} {'open':>5}"]
+    for position, report in enumerate(ranked, 1):
+        lines.append(
+            f"{position:>2}  {_short(report.did):22} {report.brier:>7.4f} "
+            f"{report.accuracy:>6.3f} {report.settled:>6} {report.open:>5}"
+        )
+    if not ranked:
+        lines.append("    (nobody has settled enough claims to rank yet)")
+    for report in sorted(unranked, key=lambda r: -len(r.entries)):
+        lines.append(
+            f" -  {_short(report.did):22} {'-':>7} {'-':>6} {report.settled:>6} "
+            f"{report.open:>5}  below the {min_scored}-claim floor"
+        )
+    return "\n".join(lines)
+
+
+def _short(did: str) -> str:
+    body = did.removeprefix("did:key:")
+    return f"{body[:8]}...{body[-6:]}"
+
+
 def summary(report: Report) -> str:
     lines = [
         f"room     {report.room}",

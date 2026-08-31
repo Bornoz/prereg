@@ -218,6 +218,9 @@ class Agent:
             except record.RecordError as exc:
                 result.errors.append(f"draft {draft.subject}: {exc}")
                 continue
+            # Stored before the write. If the publish succeeds but the response
+            # is lost, the bundle behind the digest still exists.
+            self.store.save_evidence(claim.id, draft.evidence)
             if self._publish(claim.line(), result):
                 result.claimed.append(claim.id)
                 seen.add(draft.subject)

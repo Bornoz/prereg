@@ -102,7 +102,11 @@ def cross_check(transcript, entries: list[dict], did: str) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--room", required=True)
-    parser.add_argument("--did", required=True)
+    parser.add_argument("--did", help="one identity; omit with --all")
+    parser.add_argument("--all", action="store_true",
+                        help="score every key that has published in the room")
+    parser.add_argument("--min-scored", type=int, default=5,
+                        help="settled claims needed before a key is ranked")
     parser.add_argument(
         "--signatures", type=Path,
         help="published signature log (JSONL). Without it, signatures cannot be "
@@ -112,11 +116,15 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args()
 
-    try:
-        didmod.public_key_from_did(args.did)
-    except didmod.IdentityError as exc:
-        print(f"bad --did: {exc}", file=sys.stderr)
+    if not args.all and not args.did:
+        print("give --did <identity> or --all", file=sys.stderr)
         return 2
+    if args.did:
+        try:
+            didmod.public_key_from_did(args.did)
+        except didmod.IdentityError as exc:
+            print(f"bad --did: {exc}", file=sys.stderr)
+            return 2
 
     client = Technocore(args.base)
     try:
@@ -124,6 +132,27 @@ def main() -> int:
     except WireError as exc:
         print(f"could not read the room: {exc}", file=sys.stderr)
         return 2
+
+    if args.all:
+        reports = score.build_all(transcript, args.room)
+        if args.json:
+            print(json.dumps({
+                "room": args.room,
+                "messages_in_room": len(transcript),
+                "identities": {
+                    did: {
+                        "claims": len(r.entries), "hit": r.hits, "miss": r.misses,
+                        "expired_unsettled": r.expired, "void": r.voids,
+                        "open": r.open, "accuracy": r.accuracy, "brier": r.brier,
+                        "anomalies": r.anomalies,
+                    } for did, r in reports.items()
+                },
+            }, indent=1))
+        else:
+            print(f"{args.room}: {len(transcript)} messages, "
+                  f"{len(reports)} identities with a record\n")
+            print(score.leaderboard_table(reports, min_scored=args.min_scored))
+        return 0
 
     problems: list[str] = []
     verified = 0

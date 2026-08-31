@@ -26,7 +26,7 @@ jobs:
   cycle:
     runs-on: ubuntu-latest
     env:
-      PREREG_ROOM: ${{ vars.PREREG_ROOM || 'd-prereg' }}
+      PREREG_ROOM: ${{ vars.PREREG_ROOM || 'mb-prereg' }}
       PREREG_HOME: ${{ github.workspace }}/record
       PREREG_PASSPHRASE: ${{ secrets.PREREG_PASSPHRASE }}
       PREREG_IDENTITY_PEM: ${{ secrets.PREREG_IDENTITY_PEM }}

@@ -23,3 +23,5 @@ jobs:
       - run: python -m pytest -q
       - name: check for assistant tooling residue
         run: python scripts/residue.py .
+      - name: self-check
+        run: python scripts/selfcheck.py

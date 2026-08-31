@@ -17,7 +17,14 @@ from pathlib import Path
 from prereg import did as didmod
 from prereg import record, score
 from prereg.store import SignedLine, Store
-from prereg.wire import RateLimited, Technocore, WireError, WriteOutcomeUnknown
+from prereg.wire import (
+    RateLimited,
+    Technocore,
+    WireError,
+    WriteOutcomeUnknown,
+    open_signed_room,
+    room_policy,
+)
 
 DEFAULT_HOME = Path(os.environ.get("PREREG_HOME", "~/.prereg")).expanduser()
 OWNERS_NS = "room-owners"
@@ -185,15 +192,26 @@ def cmd_run(args) -> int:
         datefmt="%Y-%m-%dT%H:%M:%SZ",
     )
     from prereg.agent import Agent
+    from prereg.sources.dexscreener import DexScreenerResolver, DexScreenerSource
+
+    store = Store(Path(args.home))
+    source = resolver = None
+    if not args.no_source:
+        source = DexScreenerSource(limit=args.max_claims)
+        resolver = DexScreenerResolver(evidence=store.evidence)
 
     agent = Agent(
         identity=load(args),
         client=Technocore(args.base),
-        store=Store(Path(args.home)),
+        store=store,
         room=args.room,
+        source=source,
+        resolver=resolver,
         max_open=args.max_open,
+        max_claims_per_cycle=args.max_claims,
         dry_run=args.no_publish,
     )
+    warn_about_room(args.room)
     mode = "dry run, nothing will be published" if args.no_publish else "live"
     print(f"prereg running against {args.room} ({mode})")
     agent.run(interval=args.interval, cycles=args.cycles or None)
@@ -226,6 +244,22 @@ def cmd_status(args) -> int:
     return 0 if not state["stale"] else 1
 
 
+def cmd_survey(args) -> int:
+    """Measure the network. Reads only; writes nothing anywhere."""
+    from prereg import survey
+
+    print(survey.report(Technocore(args.base), sample_rooms=args.rooms))
+    return 0
+
+
+def cmd_leaderboard(args) -> int:
+    """Score every key that has published a record in the room."""
+    client = Technocore(args.base)
+    reports = score.build_all(client.export(args.room), args.room)
+    print(score.leaderboard_table(reports, min_scored=args.min_scored))
+    return 0
+
+
 def cmd_watch(args) -> int:
     """Read the room and react. Reading is the point; we write nothing here."""
     client = Technocore(args.base)
@@ -253,7 +287,19 @@ def cmd_watch(args) -> int:
 # -- shared write path ----------------------------------------------------
 
 
+def warn_about_room(room: str) -> None:
+    if open_signed_room(room):
+        return
+    print(
+        f"note: {room} is not an open signed room. The protocol wants an mb- room, "
+        f"where any key may publish but every line is attributable. "
+        f"{'; '.join(room_policy(room)) or 'this room takes unsigned writes'}.",
+        file=sys.stderr,
+    )
+
+
 def _publish(args, identity, store, client, text: str, label: str) -> int:
+    warn_about_room(args.room)
     nonce = store.allocate_nonce(identity.did, args.room)
     signature = identity.sign_room(args.room, nonce, text)
     payload = didmod.room_payload(args.room, nonce, text)
@@ -345,6 +391,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-open", type=int, default=40)
     p.add_argument("--no-publish", action="store_true",
                    help="do every step except the writes")
+    p.add_argument("--no-source", action="store_true",
+                   help="read and settle only; propose nothing")
+    p.add_argument("--max-claims", type=int, default=3,
+                   help="ceiling on claims published in one cycle")
+
+    p = add("survey", cmd_survey, needs_room=False, dry=False)
+    p.add_argument("--rooms", type=int, default=12, help="how many rooms to sample")
+
+    p = add("leaderboard", cmd_leaderboard, dry=False)
+    p.add_argument("--min-scored", type=int, default=5)
 
     p = add("status", cmd_status, dry=False)
     p.add_argument("--did", help="check somebody else's agent")

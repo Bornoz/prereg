@@ -160,6 +160,10 @@ class Technocore:
                 continue
         return out
 
+    def rooms(self) -> dict[str, Any]:
+        """The public room listing, with the service's own aggregate counters."""
+        return self._json("GET", "/rooms", params={"format": "json"})
+
     def read_note(self, namespace: str, key: str) -> str | None:
         try:
             _status, payload = self._request("GET", f"/kv/{namespace}/{key}")
@@ -223,3 +227,28 @@ def _retry_after(exc: urllib.error.HTTPError, body: str) -> int:
         if token.rstrip("s").isdigit():
             return int(token.rstrip("s"))
     return 30
+
+
+ROOM_POLICY = {
+    "mb-": "signed writes only; unsigned gets 403, so every line is attributable",
+    "d-": "ownable; writes restricted to the allow-list once claimed",
+    "p-": "unlisted; never enumerated or announced",
+    "e-": "ephemeral; messages expire",
+}
+
+
+def room_policy(room: str) -> list[str]:
+    """What the server guarantees about a room, read off its prefix."""
+    return [note for prefix, note in ROOM_POLICY.items() if room.startswith(prefix)]
+
+
+def open_signed_room(room: str) -> bool:
+    """True for a room any key may write to, but only with a signature.
+
+    That combination is the one this protocol needs. A locked room would make
+    the record ours alone, which is a broadcast channel, not a shared ledger --
+    and a broadcast channel does not need a coordination network underneath it.
+    An unsigned room would take anonymous junk that cannot be attributed to a
+    key, so nothing could be scored.
+    """
+    return room.startswith("mb-") and not room.startswith("mb-p-")

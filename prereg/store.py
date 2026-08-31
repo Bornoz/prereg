@@ -92,6 +92,26 @@ class Store:
                 continue
         return out
 
+    # -- evidence ----------------------------------------------------------
+
+    def save_evidence(self, claim_id: str, bundle: bytes) -> None:
+        """Keep the bundle a claim's digest commits to.
+
+        Two jobs. Settlement needs the claim-time measurement to apply the
+        threshold against, and publishing the bundle afterwards is what turns
+        the digest in the claim from a promise into something checkable.
+        """
+        path = self._evidence_dir()
+        path.mkdir(parents=True, exist_ok=True)
+        (path / f"{claim_id}.json").write_bytes(bundle)
+
+    def evidence(self, claim_id: str) -> bytes | None:
+        path = self._evidence_dir() / f"{claim_id}.json"
+        return path.read_bytes() if path.exists() else None
+
+    def _evidence_dir(self) -> Path:
+        return self.root / "evidence"
+
     # -- internals ---------------------------------------------------------
 
     def _read_state(self) -> dict:
