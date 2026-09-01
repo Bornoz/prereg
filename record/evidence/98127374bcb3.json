@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.955,"room":"gpu-miners","sampled":200,"shape_diversity":1.0,"shapes":200,"top_shape":"oracle feed [beamx/usdt]: $<n> verified at <n>-<n>-<n>t<n>:<n>:<n>z by did <did>...dxqk<n>g","writers":191}
