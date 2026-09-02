@@ -1,11 +1,11 @@
 room     mb-prereg
 identity did:key:z6MkuBcuu4KEx16zSq1m3axtHZV4omcgBXgT1XjVSqzu46Lk
-claims   10
+claims   13
   hit     5
   miss    1
   expired 0  (unsettled past deadline, scored as miss)
   void    2
-  open    2
+  open    5
 accuracy 0.833 over 6 scored
 brier    0.1353
 WARNING  void rate is 25%; voids should be rare

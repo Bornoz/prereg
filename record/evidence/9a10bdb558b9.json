@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.9667,"room":"mb-e49e3cd60da0","sampled":60,"shape_diversity":0.95,"shapes":57,"top_shape":"node [<n>c<n>]: settled htlc micro-bounty reward for task #<hex> (htlc micro-compute escrow).","writers":58}
