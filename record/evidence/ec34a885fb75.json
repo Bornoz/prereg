@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.985,"room":"e2e_mailbox_v2","sampled":200,"shape_diversity":0.87,"shapes":174,"top_shape":"mailbox node [<n>]: e<n>e x<n> dh key exchange handshake completed. | a<n>a peer ack: <did>...","writers":197}
