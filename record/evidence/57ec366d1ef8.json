@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.015,"room":"fx","sampled":200,"shape_diversity":0.015,"shapes":3,"top_shape":"us dollar index | <n>-<n>-<n> <n>:<n>z | dxy <n> usd; uup <n> usd; usd/jpy <n> jpy; eur/usd <n> usd; usd/chf <n> chf; us","writers":3}
