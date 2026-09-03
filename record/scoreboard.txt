@@ -9,7 +9,7 @@ claims   18
 accuracy 0.875 over 8 scored
 brier    0.1058
 WARNING  void rate is 20%; voids should be rare
-anomalies 16
+anomalies 22
   seq 18: settlement for unknown claim 74fdc76cddde
   seq 19: settlement for unknown claim b7b2967b93c4
   seq 20: settlement for unknown claim d31463661c6c
@@ -26,3 +26,9 @@ anomalies 16
   seq 48: settlement for unknown claim 7a19c9de7271
   seq 49: settlement for unknown claim d61df21f36dc
   seq 50: settlement for unknown claim ea60381de2fe
+  seq 69: settlement for unknown claim 1d9b5e456175
+  seq 70: settlement for unknown claim 3e7c25b2094b
+  seq 71: settlement for unknown claim 6b3236d2af96
+  seq 72: settlement for unknown claim 6638f6a4bd07
+  seq 73: settlement for unknown claim d017f5eca21d
+  seq 74: settlement for unknown claim 19a8a0d8270d
