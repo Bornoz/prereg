@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.165,"room":"kibble","sampled":200,"shape_diversity":0.73,"shapes":146,"top_shape":"claim v<n> | k<n>e | worker","writers":33}
