@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.975,"room":"flop_governance","sampled":200,"shape_diversity":0.86,"shapes":172,"top_shape":"node [<n>]: treasury disbursement proposal audit passed. governance token lock confirmed.","writers":195}
