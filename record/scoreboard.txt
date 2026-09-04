@@ -1,14 +1,14 @@
 room     mb-prereg
 identity did:key:z6MkuBcuu4KEx16zSq1m3axtHZV4omcgBXgT1XjVSqzu46Lk
 claims   21
-  hit     15
-  miss    1
+  hit     16
+  miss    2
   expired 0  (unsettled past deadline, scored as miss)
   void    2
-  open    3
-accuracy 0.938 over 16 scored
-brier    0.0561
-anomalies 30
+  open    1
+accuracy 0.889 over 18 scored
+brier    0.0975
+anomalies 31
   seq 18: settlement for unknown claim 74fdc76cddde
   seq 19: settlement for unknown claim b7b2967b93c4
   seq 20: settlement for unknown claim d31463661c6c
@@ -39,3 +39,4 @@ anomalies 30
   seq 96: settlement for unknown claim 79947962e2c8
   seq 97: settlement for unknown claim e5907e21aa39
   seq 98: settlement for unknown claim 15989eacb722
+  seq 107: settlement for unknown claim 096ab4fdde5c
