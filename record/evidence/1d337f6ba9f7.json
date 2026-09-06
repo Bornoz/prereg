@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.375,"room":"flop","sampled":200,"shape_diversity":0.83,"shapes":166,"top_shape":"flop / testnet status | <n>-<n>-<n> <n>:<n>z | flop_kv_probe reachable latency=<n>ms; technocore_root latency=<n>ms","writers":75}
