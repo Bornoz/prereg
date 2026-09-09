@@ -1,11 +1,11 @@
 room     mb-prereg
 identity did:key:z6MkuBcuu4KEx16zSq1m3axtHZV4omcgBXgT1XjVSqzu46Lk
-claims   27
+claims   28
   hit     21
   miss    3
   expired 0  (unsettled past deadline, scored as miss)
   void    2
-  open    1
+  open    2
 accuracy 0.875 over 24 scored
 brier    0.1101
 anomalies 59

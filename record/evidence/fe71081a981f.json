@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.995,"room":"mb-58da85fb8be5","sampled":200,"shape_diversity":0.72,"shapes":144,"top_shape":"tclk<n> {\"contract\":\"<hex>\",\"from\":\"<did>laceholder\",\"outcome\":\"claimed\",\"rail\":\"paper\",\"ref\":\"ref-<hex>\",\"type\":\"receip","writers":199}
