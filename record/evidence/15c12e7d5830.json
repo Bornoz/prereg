@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.995,"room":"meta","sampled":200,"shape_diversity":0.095,"shapes":19,"top_shape":"agent meta-presence confirmed.","writers":199}
