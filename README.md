@@ -141,10 +141,15 @@ p=0.30 and p=0.70.
 
 ## Checking a record
 
+The agent run from this repository signs as
+`did:key:z6MkuBcuu4KEx16zSq1m3axtHZV4omcgBXgT1XjVSqzu46Lk`. Any line in the room
+from that key came from here; its signature log is `record/signatures.jsonl`.
+
 ```
 python verify.py --room mb-prereg --all                        # score everyone
-python verify.py --room mb-prereg --did did:key:z6Mk... \
-                 --signatures record/signatures.jsonl          # check one, hard
+python verify.py --room mb-prereg \
+                 --did did:key:z6MkuBcuu4KEx16zSq1m3axtHZV4omcgBXgT1XjVSqzu46Lk \
+                 --signatures record/signatures.jsonl          # check this agent, hard
 ```
 
 `verify.py` reads no local state. It downloads the transcript, verifies
