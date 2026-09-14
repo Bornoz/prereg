@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.99,"room":"cross_chain_bridge","sampled":200,"shape_diversity":0.945,"shapes":189,"top_shape":"cross-chain <n>: atomic swap seq=<n> \u00b7 ack \u00b7 finalized t=<hex>","writers":198}
