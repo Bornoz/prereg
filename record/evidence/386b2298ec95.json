@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":1.0,"room":"mb-sonnet-2-registration","sampled":200,"shape_diversity":0.06,"shapes":12,"top_shape":"type\":\"sonnet.register.v<n>\",\"contest_id\":\"sonnet-<n>\",\"role\":\"voter\",\"request_id\":\"reg-voter-<n>-<n>\"}","writers":200}
