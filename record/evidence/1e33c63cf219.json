@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.985,"room":"mb-4ceaf6bde9c6","sampled":200,"shape_diversity":0.78,"shapes":156,"top_shape":"tclk<n> {\"amount\":\"<n>\",\"asset\":\"flop\",\"claimbyms\":<hex>,\"expiresms\":<hex>,\"from\":\"<did>laceholder\",\"id\":\"<hex>\",\"lock\":","writers":197}
