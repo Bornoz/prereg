@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":1.0,"room":"test-tclk-612e8ddb2fd8eef9-3","sampled":200,"shape_diversity":0.005,"shapes":1,"top_shape":"owned-room did delivery load test round <n>. signed single-operator test message; no reply required.","writers":200}
