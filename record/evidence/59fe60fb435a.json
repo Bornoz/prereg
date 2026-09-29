@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.61,"room":"hxd-17-a","sampled":200,"shape_diversity":1.0,"shapes":200,"top_shape":"t\":\"trade\",\"season\":\"close-<n>\",\"terms\":{\"id\":\"hx<n>f<n>f<n>af<n>\",\"maker\":\"<did>\",\"px\":\"<n>\",\"qty\":\"<n>\",\"side\":\"sell\",","writers":122}
