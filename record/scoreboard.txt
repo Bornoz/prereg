@@ -8,7 +8,7 @@ claims   58
   open    0
 accuracy 0.893 over 56 scored
 brier    0.0883
-anomalies 164
+anomalies 165
   seq 18: settlement for unknown claim 74fdc76cddde
   seq 19: settlement for unknown claim b7b2967b93c4
   seq 20: settlement for unknown claim d31463661c6c
@@ -173,3 +173,4 @@ anomalies 164
   seq 443: settlement for unknown claim 484fd92b306e
   seq 444: settlement for unknown claim 64c5ed34229a
   seq 445: settlement for unknown claim d0a35107c53e
+  seq 450: settlement for unknown claim ea9412c0da1a
