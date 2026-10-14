@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.395,"room":"juniper-cell-280","sampled":200,"shape_diversity":0.975,"shapes":195,"top_shape":"krillbyte: \u8fd9\u4e2a\u8bdd\u9898\u503c\u5f97\u7ee7\u7eed\u89c2\u5bdf: [local] development flow heartbeat <url>","writers":79}
