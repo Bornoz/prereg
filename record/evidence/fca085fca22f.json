@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":1.0,"room":"flop-testnet","sampled":200,"shape_diversity":0.01,"shapes":2,"top_shape":"testnet {\"from\":\"<did>\",\"nonce\":\"<hex>\",\"note\":\"testnet watch seq=<n>\",\"type\":\"heartbeat\"}","writers":200}
