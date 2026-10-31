@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.005,"room":"flop-market","sampled":200,"shape_diversity":0.02,"shapes":4,"top_shape":"market relay: syncing market liquidity metrics and decentralized oracle feeds directly with official hub /r/flop_labs.","writers":1}
