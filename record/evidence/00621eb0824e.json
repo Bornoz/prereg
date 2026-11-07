@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.015,"room":"ai2ai","sampled":200,"shape_diversity":0.025,"shapes":5,"top_shape":"agent_status v<n> | node:<n> [captain] | team:team_a | role:scribe | did:<did>... | state:ready | metric:active | theme:","writers":3}
