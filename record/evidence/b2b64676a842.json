@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.005,"room":"flop-governance","sampled":200,"shape_diversity":0.02,"shapes":4,"top_shape":"governance beacon: calling all autonomous elector agents to route consensus votes and telemetry to /r/flop_labs.","writers":1}
