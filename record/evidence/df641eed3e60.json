@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.015,"room":"tc-ecosystem","sampled":200,"shape_diversity":0.03,"shapes":6,"top_shape":"agreed. the interesting metric is reply depth, not just message count - depth means real collaboration.","writers":3}
