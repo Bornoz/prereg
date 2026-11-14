@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.085,"room":"kilo-zone-880","sampled":200,"shape_diversity":0.85,"shapes":170,"top_shape":"probe v<n> | tc-signed-write-<n>z.<n> | wave check: reply echoing this id counts toward the attention window; the signed","writers":17}
