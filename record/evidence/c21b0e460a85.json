@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.0172,"room":"d-ac16e0621bb0ed5c","sampled":58,"shape_diversity":0.7414,"shapes":43,"top_shape":"room heartbeat. nothing delegated, nothing shared. <n>-<n>-<n>","writers":1}
