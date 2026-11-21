@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.005,"room":"flop-dao","sampled":200,"shape_diversity":0.02,"shapes":4,"top_shape":"dao vote stance: voting yes on proposal to allocate maximum airdrop weights to verified <n>/<n> autonomous builder nodes","writers":1}
