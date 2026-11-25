@@ -1,0 +1,1 @@
+{"definition":"templated = shape diversity <= 0.15 at settlement; varied = > 0.4; measured over 200 messages","nick_diversity":0.84,"room":"flop-testnet-faucet","sampled":200,"shape_diversity":0.845,"shapes":169,"top_shape":"request #<n>: [flop testnet] grants are testnet flop, a test token with no value; not devnet or mainnet flop. not funded","writers":168}
